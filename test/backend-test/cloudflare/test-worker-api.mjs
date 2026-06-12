@@ -224,7 +224,7 @@ describe("Cloudflare Worker API", () => {
         const wranglerConfig = JSON.parse(fs.readFileSync(wranglerPath, "utf8"));
 
         assert.ok(wranglerConfig.vars);
-        assert.strictEqual(wranglerConfig.vars.APP_VERSION, "1.0.0");
+        assert.strictEqual(wranglerConfig.vars.APP_VERSION, "1.0.1");
         for (const name of [
             "TWINGATE_PROXY_URL",
             "TWINGATE_SERVICE_KEY_B64",

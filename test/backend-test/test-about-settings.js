@@ -45,11 +45,11 @@ describe("About settings page branding and versioning", () => {
         assert.match(checkVersionSource, /https:\/\/api\.github\.com\/repos\/esaueng\/uptimeworker-ha\/releases\/latest/);
     });
 
-    test("declares the first Uptime Worker repo release version", () => {
-        assert.strictEqual(packageJson.version, "1.0.0");
-        assert.strictEqual(packageLockJson.version, "1.0.0");
-        assert.strictEqual(packageLockJson.packages[""].version, "1.0.0");
-        assert.match(packageJson.scripts.setup, /git checkout 1\.0\.0/);
+    test("declares the current Uptime Worker HA release version", () => {
+        assert.strictEqual(packageJson.version, "1.0.1");
+        assert.strictEqual(packageLockJson.version, "1.0.1");
+        assert.strictEqual(packageLockJson.packages[""].version, "1.0.1");
+        assert.match(packageJson.scripts.setup, /git checkout 1\.0\.1/);
     });
 
     test("does not expose beta release update checks", () => {
