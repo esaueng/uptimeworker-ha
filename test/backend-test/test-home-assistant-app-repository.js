@@ -10,22 +10,23 @@ function read(filePath) {
     return fs.readFileSync(path.join(root, filePath), "utf8");
 }
 
-describe("Home Assistant app repository", () => {
+describe("Home Assistant add-on repository", () => {
     test("has repository metadata at the git root", () => {
         const repository = read("repository.yaml");
 
-        assert.match(repository, /^name: Uptime Worker Apps$/m);
-        assert.match(repository, /^url: https:\/\/github\.com\/esaueng\/uptimeworker\/tree\/docker$/m);
+        assert.match(repository, /^name: Uptime Worker HA$/m);
+        assert.match(repository, /^url: https:\/\/github\.com\/esaueng\/uptimeworker-ha$/m);
         assert.match(repository, /^maintainer: Esau Engineering$/m);
     });
 
-    test("defines an installable Uptime Worker app", () => {
+    test("defines an installable Uptime Worker HA add-on", () => {
         const config = read("uptimeworker/config.yaml");
 
-        assert.match(config, /^name: Uptime Worker$/m);
+        assert.match(config, /^name: Uptime Worker HA$/m);
         assert.match(config, /^version: "1\.0\.0"$/m);
         assert.match(config, /^slug: uptimeworker$/m);
-        assert.match(config, /^description: Self-hosted Uptime Worker monitoring server$/m);
+        assert.match(config, /^description: Self-hosted Uptime Worker monitoring server for Home Assistant$/m);
+        assert.match(config, /^url: https:\/\/github\.com\/esaueng\/uptimeworker-ha$/m);
         assert.match(config, /^  - amd64$/m);
         assert.match(config, /^  - aarch64$/m);
         assert.match(config, /^startup: application$/m);
@@ -34,10 +35,11 @@ describe("Home Assistant app repository", () => {
         assert.match(config, /^webui: http:\/\/\[HOST\]:\[PORT:3001\]$/m);
         assert.match(config, /^watchdog: http:\/\/\[HOST\]:\[PORT:3001\]\/api\/entry-page$/m);
         assert.match(config, /^  3001\/tcp: 3001$/m);
+        assert.match(config, /^  3001\/tcp: Uptime Worker HA web interface$/m);
         assert.doesNotMatch(config, /^image:/m, "local Home Assistant builds should use this branch, not a registry image");
     });
 
-    test("ships the app build files Home Assistant expects", () => {
+    test("ships the add-on build files Home Assistant expects", () => {
         for (const filePath of [
             "uptimeworker/CHANGELOG.md",
             "uptimeworker/DOCS.md",
@@ -53,6 +55,8 @@ describe("Home Assistant app repository", () => {
 
         assert.match(dockerfile, /^ARG BUILD_VERSION$/m);
         assert.match(dockerfile, /^ARG BUILD_ARCH$/m);
+        assert.match(dockerfile, /^ARG UPTIMEWORKER_REPOSITORY=https:\/\/github\.com\/esaueng\/uptimeworker-ha\.git$/m);
+        assert.match(dockerfile, /^ARG UPTIMEWORKER_REF=main$/m);
         assert.match(dockerfile, /io\.hass\.version="\$\{BUILD_VERSION\}"/);
         assert.match(dockerfile, /io\.hass\.type="app"/);
         assert.match(dockerfile, /io\.hass\.arch="\$\{BUILD_ARCH\}"/);
@@ -60,7 +64,7 @@ describe("Home Assistant app repository", () => {
         assert.match(dockerfile, /ENV DATA_DIR=\/data/);
         assert.match(dockerfile, /EXPOSE 3001/);
         assert.match(dockerfile, /CMD \["\/run\.sh"\]/);
-        assert.doesNotMatch(dockerfile, /COPY \.\./, "Home Assistant builds the app folder as the Docker context");
+        assert.doesNotMatch(dockerfile, /COPY \.\./, "Home Assistant builds the add-on folder as the Docker context");
 
         assert.match(runScript, /export DATA_DIR="\$\{DATA_DIR:-\/data\}"/);
         assert.match(runScript, /exec \/app\/docker\/entrypoint\.sh node \/app\/server\/server\.js/);

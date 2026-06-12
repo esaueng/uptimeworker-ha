@@ -10,6 +10,7 @@ describe("single-container Docker deployment", () => {
     const composePath = path.join(root, "compose.yaml");
     const entrypointPath = path.join(root, "docker/entrypoint.sh");
     const docsPath = path.join(root, "docs/docker.md");
+    const packageJson = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 
     test("builds a self-contained image from this repository", () => {
         assert.ok(fs.existsSync(dockerfilePath), "top-level Dockerfile is required");
@@ -46,12 +47,14 @@ describe("single-container Docker deployment", () => {
         const docs = fs.readFileSync(docsPath, "utf8");
 
         assert.match(compose, /build:\s*\n\s*context: \./);
-        assert.match(compose, /image: uptimeworker:local/);
+        assert.match(compose, /image: uptimeworker-ha:local/);
         assert.match(compose, /3001:3001/);
         assert.match(compose, /\.\/data:\/data/);
         assert.match(compose, /restart: unless-stopped/);
         assert.match(docs, /Home Assistant/);
-        assert.match(docs, /docker build -t uptimeworker:local \./);
+        assert.match(docs, /docker build -t uptimeworker-ha:local \./);
         assert.match(docs, /-v .*:\/data/);
+        assert.equal(packageJson.scripts["docker:build"], "docker build -t uptimeworker-ha:local .");
+        assert.equal(packageJson.scripts["docker:run"], "docker run --rm -p 3001:3001 -v uptimeworker-ha-data:/data uptimeworker-ha:local");
     });
 });

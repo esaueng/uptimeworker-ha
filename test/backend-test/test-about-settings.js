@@ -74,6 +74,7 @@ describe("About settings page branding and versioning", () => {
 
     test("shows Esau Engineering on the project license surfaces", () => {
         assert.match(aboutSource, /MIT License/);
+        assert.match(aboutSource, /https:\/\/github\.com\/esaueng\/uptimeworker-ha\/blob\/main\/LICENSE/);
         assert.match(aboutSource, /Copyright \(c\) 2026 Esau Engineering/);
         assert.match(licenseSource, /Copyright \(c\) 2026 Esau Engineering/);
         assert.match(licenseSource, /Copyright \(c\) 2021 Louis Lam/);
@@ -84,7 +85,7 @@ describe("About settings page branding and versioning", () => {
         assert.match(aboutSource, /Uptime Worker HA/);
         assert.match(aboutSource, /Home Assistant add-on and Docker container/);
         assert.match(readmeSource, /Home Assistant\s+add-on and standalone Docker container/);
-        assert.match(readmeSource, /Home Assistant app\/Docker distribution/);
+        assert.match(readmeSource, /Home Assistant add-on\/Docker distribution/);
     });
 
     test("links the public powered-by footer to the Uptime Worker fork", () => {

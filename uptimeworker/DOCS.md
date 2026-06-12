@@ -30,7 +30,7 @@ replacing the host storage.
 
 ## Notes
 
-This add-on builds the container from the `docker` branch of this repository.
+This add-on builds the container from the `main` branch of this repository.
 The retained Cloudflare Worker deployment remains available for
 Cloudflare-based installs, but it is not required for this Home Assistant
 container path.

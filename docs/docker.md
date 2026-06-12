@@ -16,7 +16,7 @@ https://github.com/esaueng/uptimeworker-ha
 ```
 
 Home Assistant will find the `uptimeworker/` add-on folder and build the image
-from this repository's `docker` branch. The add-on exposes port `3001` and
+from this repository's `main` branch. The add-on exposes port `3001` and
 stores persistent data in Home Assistant's add-on `/data` volume.
 
 ## Build

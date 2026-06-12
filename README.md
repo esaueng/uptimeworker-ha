@@ -5,8 +5,8 @@ add-on and standalone Docker container. It is based on the `docker` branch of
 `esaueng/uptimeworker` and runs the retained Node.js monitoring server locally
 instead of requiring the Cloudflare Worker stack.
 
-Use this repository when you want the Home Assistant app/Docker distribution of
-Uptime Worker: the container serves the web UI on port `3001` and stores its
+Use this repository when you want the Home Assistant add-on/Docker distribution
+of Uptime Worker: the container serves the web UI on port `3001` and stores its
 SQLite database, uploads, screenshots, and runtime files in `/data`.
 
 ## Install In Home Assistant

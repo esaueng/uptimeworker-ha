@@ -27,7 +27,7 @@
                 </div>
             </div>
             <div class="mt-4 license-note">
-                <a href="https://github.com/esaueng/uptimeworker-ha/blob/docker/LICENSE" target="_blank" rel="noopener">
+                <a href="https://github.com/esaueng/uptimeworker-ha/blob/main/LICENSE" target="_blank" rel="noopener">
                     MIT License
                 </a>
                 <div>Copyright (c) 2026 Esau Engineering</div>
