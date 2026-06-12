@@ -2117,7 +2117,11 @@
 
                                 <label class="form-check-label" :for="'notification' + notification.id">
                                     {{ notification.name }}
-                                    <a href="#" @click="$refs.notificationDialog.show(notification.id)">
+                                    <a
+                                        v-if="$root.hasPermission('notifications.write')"
+                                        href="#"
+                                        @click="$refs.notificationDialog.show(notification.id)"
+                                    >
                                         {{ $t("Edit") }}
                                     </a>
                                 </label>
@@ -2127,7 +2131,12 @@
                                 </span>
                             </div>
 
-                            <button class="btn btn-primary me-2" type="button" @click="$refs.notificationDialog.show()">
+                            <button
+                                v-if="$root.hasPermission('notifications.write')"
+                                class="btn btn-primary me-2"
+                                type="button"
+                                @click="$refs.notificationDialog.show()"
+                            >
                                 {{ $t("Setup Notification") }}
                             </button>
 

@@ -141,7 +141,12 @@
                         >
                             {{ $t("Delete") }}
                         </button>
-                        <button type="button" class="btn btn-warning" :disabled="processing" @click="test">
+                        <button
+                            type="button"
+                            class="btn btn-warning"
+                            :disabled="processing || hasStoredSecretPlaceholder"
+                            @click="test"
+                        >
                             {{ $t("Test") }}
                         </button>
                         <button type="submit" class="btn btn-primary" :disabled="processing">
@@ -170,6 +175,45 @@ import { Modal } from "bootstrap";
 
 import Confirm from "./Confirm.vue";
 import NotificationFormList from "./notifications";
+
+const STORED_NOTIFICATION_SECRET = "__UPTIME_WORKER_NOTIFICATION_SECRET_STORED__";
+
+/**
+ * Fill a redacted notification secret path with a non-secret placeholder.
+ * @param {object} target Notification config object.
+ * @param {string} path Dot-separated field path.
+ * @returns {void}
+ */
+function setStoredSecretPlaceholder(target, path) {
+    const parts = String(path || "").split(".").filter(Boolean);
+    if (!target || parts.length === 0) {
+        return;
+    }
+
+    let owner = target;
+    for (const part of parts.slice(0, -1)) {
+        if (!owner[part] || typeof owner[part] !== "object") {
+            owner[part] = {};
+        }
+        owner = owner[part];
+    }
+    owner[parts[parts.length - 1]] = STORED_NOTIFICATION_SECRET;
+}
+
+/**
+ * Check whether a notification config still contains stored-secret placeholders.
+ * @param {unknown} value Config value to inspect.
+ * @returns {boolean} True when a stored-secret placeholder is present.
+ */
+function containsStoredSecretPlaceholder(value) {
+    if (value === STORED_NOTIFICATION_SECRET) {
+        return true;
+    }
+    if (!value || typeof value !== "object") {
+        return false;
+    }
+    return Object.values(value).some((childValue) => containsStoredSecretPlaceholder(childValue));
+}
 
 export default {
     components: {
@@ -376,6 +420,10 @@ export default {
             }
             return list;
         },
+
+        hasStoredSecretPlaceholder() {
+            return containsStoredSecretPlaceholder(this.notification);
+        },
     },
 
     watch: {
@@ -420,6 +468,13 @@ export default {
                 for (let n of this.$root.notificationList) {
                     if (n.id === notificationID) {
                         this.notification = JSON.parse(n.config);
+                        const secretFields = Array.isArray(this.notification.__secretFields)
+                            ? this.notification.__secretFields
+                            : [];
+                        delete this.notification.__secretFields;
+                        for (const field of secretFields) {
+                            setStoredSecretPlaceholder(this.notification, field);
+                        }
 
                         // applyExisting is one time only, but it got saved to database previously. Workaround fix, set it to false here to deal with the problem.
                         this.notification.applyExisting = false;

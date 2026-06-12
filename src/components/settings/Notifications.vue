@@ -1,5 +1,5 @@
 <template>
-    <div>
+    <div v-if="$root.hasPermission('notifications.read')">
         <div class="notification-list my-4">
             <p v-if="$root.notificationList.length === 0">
                 {{ $t("Not available, please setup.") }}
@@ -131,6 +131,9 @@
         </div>
 
         <NotificationDialog ref="notificationDialog" />
+    </div>
+    <div v-else class="alert alert-warning my-4">
+        Notification management is only available to admins.
     </div>
 </template>
 

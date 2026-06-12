@@ -430,7 +430,9 @@ export default {
             try {
                 const sidecarDataPromise = refreshSidecars
                     ? Promise.allSettled([
-                        requestCloudflareJson("/api/notifications"),
+                        this.hasPermission("notifications.read")
+                            ? requestCloudflareJson("/api/notifications")
+                            : Promise.resolve({ notifications: [] }),
                         requestCloudflareJson("/api/proxies"),
                         requestCloudflareJson("/api/docker-hosts"),
                         requestCloudflareJson("/api/remote-browsers"),

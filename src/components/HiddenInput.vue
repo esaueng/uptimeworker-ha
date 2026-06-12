@@ -5,23 +5,25 @@
             v-model="model"
             :type="visibility"
             class="form-control"
-            :placeholder="placeholder"
+            :placeholder="resolvedPlaceholder"
             :maxlength="maxlength"
             :autocomplete="autocomplete"
-            :required="required"
+            :required="required && !hasStoredSecret"
             :readonly="readonly"
         />
 
-        <a v-if="visibility == 'password'" class="btn btn-outline-primary" @click="showInput()">
+        <a v-if="visibility == 'password' && !hasStoredSecret" class="btn btn-outline-primary" @click="showInput()">
             <font-awesome-icon icon="eye" />
         </a>
-        <a v-if="visibility == 'text'" class="btn btn-outline-primary" @click="hideInput()">
+        <a v-if="visibility == 'text' && !hasStoredSecret" class="btn btn-outline-primary" @click="hideInput()">
             <font-awesome-icon icon="eye-slash" />
         </a>
     </div>
 </template>
 
 <script>
+const STORED_NOTIFICATION_SECRET = "__UPTIME_WORKER_NOTIFICATION_SECRET_STORED__";
+
 export default {
     props: {
         /** The value of the input */
@@ -61,8 +63,19 @@ export default {
         };
     },
     computed: {
+        hasStoredSecret() {
+            return this.modelValue === STORED_NOTIFICATION_SECRET;
+        },
+
+        resolvedPlaceholder() {
+            return this.hasStoredSecret ? "Stored securely" : this.placeholder;
+        },
+
         model: {
             get() {
+                if (this.hasStoredSecret) {
+                    return "";
+                }
                 return this.modelValue;
             },
             set(value) {

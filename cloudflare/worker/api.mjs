@@ -82,6 +82,7 @@ const SCHEDULED_TWINGATE_ALERT_INTERVAL_MS = 5 * 60 * 1000;
 const ACCESS_SECRET_HEADER = "X-Uptime-Worker-Token";
 const ACCESS_SECRET_MONITOR_TYPES = new Set(["http", "keyword", "json-query"]);
 const NOTIFICATION_OK_MESSAGE = "Sent Successfully.";
+const REDACTED_NOTIFICATION_SECRET = "__UPTIME_WORKER_NOTIFICATION_SECRET_STORED__";
 const DEFAULT_APP_VERSION = "1.0.0";
 const DEPLOY_MONITOR_PAUSE_MESSAGE = "Monitor checks are paused during Worker deployment";
 const MONITOR_PAUSED_MESSAGE = "Monitor is paused";
@@ -352,9 +353,6 @@ const ROLE_PERMISSIONS = {
         "heartbeats.clear",
         "settings.read",
         "settings.write",
-        "notifications.read",
-        "notifications.write",
-        "notifications.test",
         "tags.read",
         "tags.write",
         "proxies.read",
@@ -381,7 +379,6 @@ const ROLE_PERMISSIONS = {
         "heartbeats.read",
         "heartbeats.clear",
         "settings.read",
-        "notifications.read",
         "tags.read",
         "proxies.read",
         "docker-hosts.read",
@@ -396,7 +393,6 @@ const ROLE_PERMISSIONS = {
         "monitors.read",
         "heartbeats.read",
         "settings.read",
-        "notifications.read",
         "tags.read",
         "proxies.read",
         "docker-hosts.read",
@@ -686,7 +682,7 @@ export async function handleApiRequest(request, env) {
         }
 
         if (route.name === "notifications") {
-            return json({ notifications: await listNotifications(env) });
+            return json({ notifications: await listNotifications(env, { includeSecrets: false }) });
         }
 
         if (route.name === "save-notification") {
@@ -1322,25 +1318,25 @@ function serializeRunnerProxy(row) {
     };
 }
 
-export async function listNotifications(env) {
+export async function listNotifications(env, options = {}) {
     await ensureNotificationTables(env);
     const result = await env.DB.prepare(
         `SELECT id, name, active, user_id, is_default, config
          FROM notification
          ORDER BY name`
     ).all();
-    return (result.results || []).map(serializeNotification);
+    return (result.results || []).map((row) => serializeNotification(row, options));
 }
 
 export async function saveNotification(env, notificationInput, notificationId = null) {
     await ensureNotificationTables(env);
-    const notification = normalizeNotificationInput(notificationInput);
 
     if (notificationId) {
         const existing = await getNotification(env, Number(notificationId));
         if (!existing) {
             throw httpError(404, "notification not found");
         }
+        const notification = normalizeNotificationInput(notificationInput, parseNotificationConfig(existing.config));
 
         await env.DB.prepare(
             `UPDATE notification
@@ -1364,6 +1360,7 @@ export async function saveNotification(env, notificationInput, notificationId = 
         return { id: Number(notificationId) };
     }
 
+    const notification = normalizeNotificationInput(notificationInput);
     const result = await env.DB.prepare(
         `INSERT INTO notification (name, active, user_id, is_default, config)
          VALUES (?, ?, ?, ?, ?)`
@@ -1718,11 +1715,15 @@ async function ensureNotificationTables(env) {
     await env.DB.prepare(MONITOR_NOTIFICATION_INDEX_SQL).run();
 }
 
-function normalizeNotificationInput(notificationInput = {}) {
+function normalizeNotificationInput(notificationInput = {}, existingConfig = null) {
     const config = {
         ...notificationInput,
         applyExisting: false,
     };
+    deleteNotificationResponseMetadata(config);
+    if (existingConfig) {
+        retainExistingNotificationSecrets(config, existingConfig);
+    }
     const name = String(notificationInput.name || notificationInput.type || "Notification").trim();
     return {
         name,
@@ -1733,15 +1734,142 @@ function normalizeNotificationInput(notificationInput = {}) {
     };
 }
 
-function serializeNotification(row) {
+function serializeNotification(row, options = {}) {
+    const includeSecrets = options.includeSecrets !== false;
     return {
         id: Number(row.id),
         name: row.name || "",
         active: row.active === undefined ? true : Boolean(row.active),
         user_id: row.user_id ?? 1,
         isDefault: Boolean(row.is_default),
-        config: row.config || "{}",
+        config: includeSecrets ? row.config || "{}" : serializeRedactedNotificationConfig(row.config),
     };
+}
+
+/**
+ * Serialize notification config for API responses without secret values.
+ * @param {string|null} value Stored notification config JSON.
+ * @returns {string} Redacted notification config JSON.
+ */
+function serializeRedactedNotificationConfig(value) {
+    const config = parseNotificationConfig(value);
+    const secretFields = [];
+    const redacted = redactNotificationSecrets(config, [], secretFields);
+    if (secretFields.length > 0) {
+        redacted.__secretFields = [...new Set(secretFields)].sort();
+    }
+    return JSON.stringify(redacted);
+}
+
+/**
+ * Remove secret-looking notification fields while recording their JSON paths.
+ * @param {unknown} value Config value to redact.
+ * @param {string[]} pathParts Current JSON path parts.
+ * @param {string[]} secretFields Collected secret field paths.
+ * @returns {unknown} Redacted config value.
+ */
+function redactNotificationSecrets(value, pathParts = [], secretFields = []) {
+    if (Array.isArray(value)) {
+        return value.map((item, index) => redactNotificationSecrets(item, [...pathParts, String(index)], secretFields));
+    }
+    if (!isPlainObject(value)) {
+        return value;
+    }
+
+    const redacted = {};
+    for (const [key, childValue] of Object.entries(value)) {
+        if (key === "__secretFields") {
+            continue;
+        }
+        const nextPath = [...pathParts, key];
+        if (isNotificationSecretField(key)) {
+            secretFields.push(nextPath.join("."));
+            continue;
+        }
+        redacted[key] = redactNotificationSecrets(childValue, nextPath, secretFields);
+    }
+    return redacted;
+}
+
+/**
+ * Preserve stored secrets when an update submits redacted or blank fields.
+ * @param {object} config Incoming notification config.
+ * @param {object} existingConfig Existing stored notification config.
+ * @returns {void}
+ */
+function retainExistingNotificationSecrets(config, existingConfig) {
+    if (!isPlainObject(config) || !isPlainObject(existingConfig)) {
+        return;
+    }
+
+    for (const [key, existingValue] of Object.entries(existingConfig)) {
+        if (key === "__secretFields") {
+            continue;
+        }
+        const nextValue = config[key];
+        if (isNotificationSecretField(key)) {
+            if (shouldRetainExistingNotificationSecret(nextValue)) {
+                config[key] = existingValue;
+            }
+            continue;
+        }
+        if (isPlainObject(nextValue) && isPlainObject(existingValue)) {
+            retainExistingNotificationSecrets(nextValue, existingValue);
+        }
+    }
+}
+
+/**
+ * Check whether an incoming secret value means "keep the stored value".
+ * @param {unknown} value Incoming field value.
+ * @returns {boolean} True when the existing secret should be retained.
+ */
+function shouldRetainExistingNotificationSecret(value) {
+    return (
+        value === undefined ||
+        value === null ||
+        value === "" ||
+        value === REDACTED_NOTIFICATION_SECRET
+    );
+}
+
+/**
+ * Remove response-only metadata before notification configs are stored.
+ * @param {object} value Notification config object.
+ * @returns {void}
+ */
+function deleteNotificationResponseMetadata(value) {
+    if (!isPlainObject(value)) {
+        return;
+    }
+    delete value.__secretFields;
+    for (const childValue of Object.values(value)) {
+        if (isPlainObject(childValue)) {
+            deleteNotificationResponseMetadata(childValue);
+        }
+    }
+}
+
+/**
+ * Check whether a notification config key should be treated as sensitive.
+ * @param {string} key Config field key.
+ * @returns {boolean} True when the field should be hidden from API responses.
+ */
+function isNotificationSecretField(key) {
+    const normalized = String(key || "").toLowerCase();
+    if (!normalized || normalized === "type" || normalized === "name" || normalized === "title") {
+        return false;
+    }
+    return /(?:token|secret|password|passphrase|api[_-]?key|apikey|auth|authorization|credential|webhook|url|uri|key|private)/i.test(normalized);
+}
+
+/**
+ * Check whether a value is a non-array object.
+ * @param {unknown} value Value to inspect.
+ * @returns {boolean} True for plain object-like values.
+ */
+function isPlainObject(value) {
+    return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 async function applyNotificationToAllMonitors(env, notificationId) {

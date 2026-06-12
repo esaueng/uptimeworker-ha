@@ -121,9 +121,15 @@ export default {
                 appearance: {
                     title: this.$t("Appearance"),
                 },
-                notifications: {
+            };
+
+            if (this.$root.hasPermission("notifications.read")) {
+                menus.notifications = {
                     title: this.$t("Notifications"),
-                },
+                };
+            }
+
+            Object.assign(menus, {
                 tags: {
                     title: this.$t("Tags"),
                 },
@@ -148,7 +154,7 @@ export default {
                 about: {
                     title: this.$t("About"),
                 },
-            };
+            });
 
             if (this.$root.isCloudflareWorkerUI) {
                 if (this.$root.hasPermission("monitors.write")) {

@@ -405,6 +405,21 @@ describe("Cloudflare Worker API", () => {
         assert.match(securitySource, /to="\/settings\/users"/);
     });
 
+    test("Worker Settings UI gates notification management to admins", async () => {
+        const settingsPath = path.join(__dirname, "../../../src/pages/Settings.vue");
+        const settingsSource = fs.readFileSync(settingsPath, "utf8");
+        const notificationsPath = path.join(__dirname, "../../../src/components/settings/Notifications.vue");
+        const notificationsSource = fs.readFileSync(notificationsPath, "utf8");
+        const editMonitorPath = path.join(__dirname, "../../../src/pages/EditMonitor.vue");
+        const editMonitorSource = fs.readFileSync(editMonitorPath, "utf8");
+
+        assert.match(settingsSource, /hasPermission\("notifications\.read"\)/);
+        assert.match(settingsSource, /menus\.notifications/);
+        assert.match(notificationsSource, /hasPermission\(['"]notifications\.read['"]\)/);
+        assert.match(notificationsSource, /Notification management is only available to admins/);
+        assert.match(editMonitorSource, /hasPermission\('notifications\.write'\)/);
+    });
+
     test("Worker Users settings UI calls RBAC user management endpoints", async () => {
         const usersPath = path.join(__dirname, "../../../src/components/settings/Users.vue");
         const usersSource = fs.readFileSync(usersPath, "utf8");
@@ -2590,6 +2605,7 @@ describe("Cloudflare Worker API", () => {
                     type: "discord",
                     name: "Discord Alerts",
                     webhookUrl: "https://example.com/webhook",
+                    authorizationToken: "discord-secret-token",
                     isDefault: true,
                     applyExisting: true,
                 }),
@@ -2609,7 +2625,11 @@ describe("Cloudflare Worker API", () => {
         assert.strictEqual(listBody.notifications.length, 1);
         assert.strictEqual(listBody.notifications[0].name, "Discord Alerts");
         assert.strictEqual(listBody.notifications[0].isDefault, true);
-        assert.strictEqual(JSON.parse(listBody.notifications[0].config).applyExisting, false);
+        const listedConfig = JSON.parse(listBody.notifications[0].config);
+        assert.strictEqual(listedConfig.applyExisting, false);
+        assert.strictEqual(listedConfig.webhookUrl, undefined);
+        assert.strictEqual(listedConfig.authorizationToken, undefined);
+        assert.deepStrictEqual(listedConfig.__secretFields.sort(), ["authorizationToken", "webhookUrl"]);
 
         const updateResponse = await handleApiRequest(
             adminRequest("https://example.com/api/notifications/1", {
@@ -2626,6 +2646,8 @@ describe("Cloudflare Worker API", () => {
         assert.strictEqual(updateResponse.status, 200);
         assert.strictEqual(env.state.notifications[0].name, "Primary Discord");
         assert.strictEqual(env.state.notifications[0].is_default, 0);
+        assert.strictEqual(JSON.parse(env.state.notifications[0].config).webhookUrl, "https://example.com/webhook");
+        assert.strictEqual(JSON.parse(env.state.notifications[0].config).authorizationToken, "discord-secret-token");
 
         const deleteResponse = await handleApiRequest(
             adminRequest("https://example.com/api/notifications/1", { method: "DELETE" }),
@@ -2635,6 +2657,74 @@ describe("Cloudflare Worker API", () => {
         assert.strictEqual(deleteResponse.status, 200);
         assert.strictEqual(env.state.notifications.length, 0);
         assert.strictEqual(env.state.monitorNotifications.length, 0);
+    });
+
+    test("Worker notification management endpoints require admin role", async () => {
+        const { handleApiRequest } = await import("../../../cloudflare/worker/api.mjs");
+        const env = createEnv({
+            users: [
+                {
+                    id: 11,
+                    username: "editor",
+                    role: "editor",
+                    active: 1,
+                    password_json: JSON.stringify(await hashTestWorkerPassword("password123")),
+                    totp_json: null,
+                },
+            ],
+            notifications: [
+                {
+                    id: 1,
+                    name: "Pushover Alerts",
+                    active: 1,
+                    user_id: 1,
+                    is_default: 0,
+                    config: JSON.stringify({
+                        type: "pushover",
+                        name: "Pushover Alerts",
+                        pushoveruserkey: "user-key",
+                        pushoverapptoken: "app-token",
+                    }),
+                },
+            ],
+        });
+        const editorToken = await loginLocalUser(handleApiRequest, env, "editor", "password123");
+
+        const listResponse = await handleApiRequest(
+            bearerRequest(editorToken, "https://example.com/api/notifications"),
+            env
+        );
+        const saveResponse = await handleApiRequest(
+            bearerRequest(editorToken, "https://example.com/api/notifications", {
+                method: "POST",
+                body: JSON.stringify({
+                    type: "pushover",
+                    name: "Blocked",
+                    pushoveruserkey: "blocked-user",
+                    pushoverapptoken: "blocked-token",
+                }),
+            }),
+            env
+        );
+        const testResponse = await handleApiRequest(
+            bearerRequest(editorToken, "https://example.com/api/notifications/test", {
+                method: "POST",
+                body: JSON.stringify({
+                    type: "pushover",
+                    name: "Blocked",
+                    pushoveruserkey: "blocked-user",
+                    pushoverapptoken: "blocked-token",
+                }),
+            }),
+            env
+        );
+
+        assert.strictEqual(listResponse.status, 403);
+        assert.deepStrictEqual(await listResponse.json(), { error: "Forbidden" });
+        assert.strictEqual(saveResponse.status, 403);
+        assert.deepStrictEqual(await saveResponse.json(), { error: "Forbidden" });
+        assert.strictEqual(testResponse.status, 403);
+        assert.deepStrictEqual(await testResponse.json(), { error: "Forbidden" });
     });
 
     test("creates, attaches, updates, and deletes Worker tags", async () => {
