@@ -5,7 +5,7 @@
 Please report suspected security issues privately through GitHub Security
 Advisories:
 
-<https://github.com/esaueng/uptimeworker/security/advisories/new>
+<https://github.com/esaueng/uptimeworker-ha/security/advisories/new>
 
 Include enough detail to validate the issue:
 

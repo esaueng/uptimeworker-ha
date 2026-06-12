@@ -19,7 +19,7 @@
             <a
                 v-if="hasNewVersion"
                 target="_blank"
-                href="https://github.com/esaueng/uptimeworker/releases"
+                href="https://github.com/esaueng/uptimeworker-ha/releases"
                 class="btn btn-primary me-3"
             >
                 <font-awesome-icon icon="arrow-alt-circle-up" />
@@ -117,7 +117,7 @@
 
                             <li>
                                 <a
-                                    href="https://github.com/esaueng/uptimeworker/wiki/Uptime-Worker-Help"
+                                    href="https://github.com/esaueng/uptimeworker-ha"
                                     class="dropdown-item"
                                     target="_blank"
                                 >

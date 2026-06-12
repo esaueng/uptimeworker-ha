@@ -10,7 +10,7 @@
             </div>
 
             <div class="my-3 update-link">
-                <a href="https://github.com/esaueng/uptimeworker/releases" target="_blank" rel="noopener">
+                <a href="https://github.com/esaueng/uptimeworker-ha/releases" target="_blank" rel="noopener">
                     {{ $t("Check Update On GitHub") }}
                 </a>
             </div>
@@ -24,7 +24,7 @@
                 </div>
             </div>
             <div class="mt-4 license-note">
-                <a href="https://github.com/esaueng/uptimeworker/blob/master/LICENSE" target="_blank" rel="noopener">
+                <a href="https://github.com/esaueng/uptimeworker-ha/blob/docker/LICENSE" target="_blank" rel="noopener">
                     MIT License
                 </a>
                 <div>Copyright (c) 2026 Esau Engineering</div>

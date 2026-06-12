@@ -1,340 +1,86 @@
-# Uptime Worker
+# Uptime Worker HA
 
-Uptime Worker is an independent Cloudflare-first uptime monitoring project. It
-started as a fork of Uptime Kuma, but this repository is no longer presented as
-a Docker-first upstream mirror. The goal of this fork is to keep the familiar
-monitoring and status-page experience while moving the runtime to Cloudflare.
+Uptime Worker HA is the Home Assistant container fork of
+`esaueng/uptimeworker`. It is based on that repository's `docker` branch and is
+intended to run the retained Node.js monitoring server as a local Docker
+container or Home Assistant add-on.
 
-The current target platform is Cloudflare Workers with static assets, D1, R2,
-Queues, Cron Triggers, and a containerized monitor runner.
+The container serves the web UI on port `3001` and stores its SQLite database,
+uploads, screenshots, and runtime files in `/data`.
 
-## Project Status
+## Install In Home Assistant
 
-Current repository release: `1.0.0`.
+Add this repository to Home Assistant:
 
-This fork is under active migration toward a Cloudflare-native architecture.
-The Vue dashboard and much of the monitoring model still come from the original
-Uptime Kuma codebase, but the deployment surface in this repository is built
-around `wrangler.jsonc` and the `cloudflare/` runtime.
+```text
+https://github.com/esaueng/uptimeworker-ha
+```
 
-Use this repository when you want:
+Then install **Uptime Worker HA** from the add-on store and start it. Open the
+web UI from the add-on page or browse to:
 
-- A monitoring app designed to deploy on Cloudflare.
-- A Worker-hosted web UI with SPA asset serving.
-- D1-backed monitor, heartbeat, and network profile state.
-- Scheduled monitor execution through Cloudflare Cron Triggers and Queues.
-- A Cloudflare Container runner for checks that need Node.js, network tooling,
-  or private-network routing.
-- Optional Twingate-backed network profiles for private endpoint checks.
+```text
+http://<home-assistant-host>:3001
+```
 
-Use upstream Uptime Kuma if you want the established Docker/PM2 self-hosted
-server distribution without the Cloudflare migration layer.
+Create the first admin user from the setup screen after the app starts.
 
-This repository also includes a local single-container Docker path for Home
-Assistant boxes and other self-hosted hosts. It runs the retained Node server
-with SQLite data in `/data`; see [docs/docker.md](docs/docker.md). The
-`docker` branch is structured as a Home Assistant Apps repository that can be
-added from `https://github.com/esaueng/uptimeworker/tree/docker`.
+## Run With Docker
 
-## Architecture
+Build the image locally:
 
-The Cloudflare runtime is split into three main pieces:
+```bash
+docker build -t uptimeworker-ha:local .
+```
 
-- `cloudflare/worker/index.mjs` is the Worker entry point. It serves `/api/*`
-  through Worker code, serves the built Vue app from Cloudflare assets, runs the
-  scheduled enqueue job, and consumes monitor-check queue messages.
-- `cloudflare/worker/api.mjs` contains the Worker API for network profiles,
-  monitor route assignment, immediate checks, queued checks, heartbeat writes,
-  and runner status.
-- `cloudflare/runner/` contains the containerized check runner. The Worker calls
-  this runner through the `MonitorRunner` Durable Object container binding.
+Run it with persistent data:
 
-Cloudflare resources are declared in `wrangler.jsonc`:
+```bash
+docker run -d \
+  --name uptimeworker-ha \
+  --restart unless-stopped \
+  -p 3001:3001 \
+  -v "$PWD/data:/data" \
+  uptimeworker-ha:local
+```
 
-- `ASSETS` serves `dist/` as a single-page application.
-- `DB` binds the `uptimeworker` D1 database.
-- `ARTIFACTS` binds the `uptimeworker-artifacts` R2 bucket.
-- `MONITOR_QUEUE` binds the `uptimeworker-monitor-checks` queue.
-- `RUNNER` binds the `MonitorRunner` container Durable Object.
-- A cron trigger runs once per minute and enqueues active monitors.
+The checked-in `compose.yaml` provides the same local container path:
+
+```bash
+docker compose up -d --build
+```
+
+## Runtime Defaults
+
+| Setting | Value |
+| --- | --- |
+| `DATA_DIR` | `/data` |
+| `UPTIME_KUMA_DB_TYPE` | `sqlite` |
+| `UPTIME_KUMA_IS_CONTAINER` | `1` |
+| `UPTIME_KUMA_PORT` | `3001` |
+
+Keep `/data` on persistent storage. Removing that volume removes monitors,
+users, status pages, and history.
 
 ## Repository Layout
 
 ```text
-cloudflare/
-  migrations/          D1 schema for monitors, heartbeats, and network profiles
-  runner/              Container runner for monitor checks and Twingate proxying
-  worker/              Cloudflare Worker entry point and API handlers
-config/                Vite and Playwright configuration
-db/                    Legacy and current database migration files
-public/                Static app assets and PWA metadata
-server/                Original Node server and monitor-provider code
-src/                   Vue dashboard, status pages, and shared frontend modules
-test/                  Backend, Cloudflare API, and browser tests
-wrangler.jsonc         Cloudflare deployment configuration
+uptimeworker/       Home Assistant add-on package
+Dockerfile          Standalone Docker image for local builds
+compose.yaml        Local Docker Compose deployment
+docs/docker.md      Container deployment details
+server/             Retained Node.js monitoring server
+src/                Vue dashboard and status page UI
+db/                 SQLite migration files
 ```
 
-## Requirements
-
-- Node.js 20.4 or newer.
-- npm.
-- A Cloudflare account with Workers, D1, R2, Queues, Cron Triggers, Durable
-  Objects, and Containers available for the target environment.
-- Wrangler authentication for the account that owns the configured resources.
-
-## Local Development
-
-Install dependencies:
-
-```bash
-npm ci
-```
-
-Run the inherited local development stack:
-
-```bash
-npm run dev
-```
-
-Build the Vue application:
-
-```bash
-npm run build
-```
-
-The Cloudflare Worker expects the built frontend in `dist/`, matching the
-`assets.directory` setting in `wrangler.jsonc`.
-
-## Cloudflare Development
-
-Build the frontend before running or deploying the Worker:
-
-```bash
-npm run build
-```
-
-Apply the D1 migration locally when working against a local Wrangler runtime:
-
-```bash
-npx wrangler d1 migrations apply uptimeworker --local
-```
-
-Start a local Worker session:
-
-```bash
-npx wrangler dev
-```
-
-Deploy to Cloudflare:
-
-```bash
-npx wrangler deploy
-```
-
-The Worker dashboard supports D1-backed local users, sessions, roles, and
-route-level permissions. On a fresh deployment, use the existing Cloudflare
-Access or admin-token path to open Settings > Security and create the first
-local admin login. After local users exist, Cloudflare Access is no longer an
-admin identity by itself; browser dashboard access uses a local user session.
-
-Available roles are `admin`, `editor`, `operator`, and `viewer`. Admin users
-can manage users from Settings > Users. Normal users can manage their own
-password and 2FA from Settings > Security. Public status-page API routes remain
-unauthenticated.
-
-The `0012_users_rbac.sql` migration creates `users`, `user_sessions`, and
-`user_audit_log`. If the older single Worker-local admin still exists in
-`app_settings.workerAuthUser` and `users` is empty, the migration/runtime
-bootstrap imports that account as the first `admin` user and copies the legacy
-global `workerAuthTotp` value into `users.totp_json`.
-
-Set an admin API token before exposing the Worker deployment if you also need
-scripted access or an emergency fallback. Protected endpoints fail closed unless
-the request has a valid local dashboard session, this bearer token, or a valid
-Cloudflare Access JWT before local users have been configured:
-
-```bash
-openssl rand -base64 32 | npx wrangler secret put ADMIN_API_TOKEN
-```
-
-The Worker dashboard sends its local session as a bearer token. The fallback
-admin token is full system-admin access and is still accepted when it is stored
-in browser local storage or session storage under `uptimeWorkerAdminToken` or
-`cloudflareWorkerApiToken`, but local username/password login is preferred for
-browser use.
-
-To let checks reach your own Cloudflare-protected applications without storing
-the bypass token in monitor rows, set a Worker secret named `ACCESS_SECRET`:
-
-```bash
-openssl rand -base64 32 | npx wrangler secret put ACCESS_SECRET
-```
-
-When `ACCESS_SECRET` is configured, HTTP, keyword, and JSON query checks
-automatically send this request header to the monitored target:
-
-```http
-X-Uptime-Worker-Token: <ACCESS_SECRET>
-```
-
-Use that header in Cloudflare WAF custom rules for the monitored zones. Create a
-Skip rule above challenge/block rules that matches the protected hostnames and
-`http.request.headers["x-uptime-worker-token"][0]`, then skip Managed Rules,
-managed challenges, rate limits, and Super Bot Fight Mode as needed. For
-Cloudflare Access applications, create a Service Auth policy. Either add the
-standard `CF-Access-Client-Id` and `CF-Access-Client-Secret` headers on the
-individual monitor, or configure the Access application to read service tokens
-from the `X-Uptime-Worker-Token` single header and store that single-header
-service token value in `ACCESS_SECRET`.
-
-If your deployment account or resource names differ from this repository's
-defaults, update the public resource bindings in `wrangler.jsonc` before
-deploying. Keep the binding names stable unless the Worker code is updated at
-the same time. Keep account-specific application IDs, service-key metadata, and
-secrets in Cloudflare dashboard variables or Worker secrets instead of source
-control.
-
-## Cloudflare Resources
-
-The checked-in Wrangler configuration currently targets these resource names:
-
-| Binding | Cloudflare resource |
-| --- | --- |
-| `DB` | D1 database `uptimeworker` |
-| `ARTIFACTS` | R2 bucket `uptimeworker-artifacts` |
-| `MONITOR_QUEUE` | Queue `uptimeworker-monitor-checks` |
-| `RUNNER` | Container Durable Object class `MonitorRunner` |
-| `ASSETS` | Built Vue assets from `./dist/` |
-
-The first D1 migration creates:
-
-- `network_profiles`
-- `monitors`
-- `heartbeats`
-
-It also seeds a `twingate` network profile for private routing.
-
-## Twingate Private Routing
-
-The monitor runner can start `twingated` inside the Cloudflare Container when a
-service key is provided. The recommended setup is to store the original
-downloaded Twingate service key JSON as a Worker secret:
-
-```bash
-jq -c . service_key.json | npx wrangler secret put TWINGATE_SERVICE_KEY_JSON
-```
-
-Using `TWINGATE_SERVICE_KEY_JSON` avoids newline and escaping mistakes in the
-PEM private key. If you previously configured a malformed private-key secret,
-delete stale alternatives so the deployment cannot fall back to them later:
-
-```bash
-npx wrangler secret delete TWINGATE_PRIVATE_KEY
-npx wrangler secret delete TWINGATE_PRIVATE_KEY_B64
-npx wrangler secret delete TWINGATE_SERVICE_KEY_B64
-```
-
-If you do not use `TWINGATE_SERVICE_KEY_JSON`, configure the discrete
-non-secret metadata fields as Cloudflare dashboard variables:
-
-- `TWINGATE_NETWORK`
-- `TWINGATE_SERVICE_ACCOUNT_ID`
-- `TWINGATE_KEY_ID`
-- Optional: `TWINGATE_SERVICE_KEY_VERSION`, `TWINGATE_EXPIRES_AT`, `TWINGATE_LOGIN_PATH`
-
-Then set only the PEM private key value as a Worker secret:
-
-```bash
-jq -r '.private_key' service_key.json | npx wrangler secret put TWINGATE_PRIVATE_KEY
-```
-
-Do not paste the full service key JSON into `TWINGATE_PRIVATE_KEY`, and do not
-base64-encode the full JSON into `TWINGATE_PRIVATE_KEY_B64`. `TWINGATE_PRIVATE_KEY`
-expects only the PEM `private_key` value. `TWINGATE_PRIVATE_KEY_B64` expects only
-the base64-encoded PEM. The legacy `TWINGATE_SERVICE_KEY_B64` secret is still
-supported and should contain the full base64-encoded Twingate service key JSON.
-When both forms are present, `TWINGATE_SERVICE_KEY_JSON` takes precedence.
-
-The Cloudflare container runner manages the local Twingate tunnel and HTTP proxy
-address internally. Do not configure a proxy URL for Twingate; only the service
-account fields and private-key secret are operator-provided. The checked-in
-Cloudflare configuration starts Twingate with `TWINGATE_TUN=on` so Twingate
-Ping monitors run real ICMP through the tunnel. The same runner still exposes
-the local HTTP proxy for private HTTP, keyword, JSON query, TCP port, and
-WebSocket reachability checks.
-When Twingate is configured, the runner keeps the Cloudflare container alive
-after idle activity expiry and supervises `twingated` inside the container.
-Unexpected non-authentication exits are restarted after `TWINGATE_RESTART_DELAY_MS`
-(`1000` by default) so deploy rollovers or clean client exits do not leave the
-service stuck in a configured-but-not-running state.
-If your container runtime cannot provide `/dev/net/tun` and the network
-administration capability needed by the Linux Twingate client, set
-`TWINGATE_TUN=off` as a dashboard variable for proxy-only userspace mode. In
-that mode, Twingate-routed Ping monitors can only use the configured TCP
-fallback probes and cannot prove true ICMP reachability.
-
-If you use Cloudflare Access as the initial admin gate, configure
-`CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD` as dashboard variables for the
-deployment. Do not commit deployment-specific Access application audiences to
-`wrangler.jsonc`.
-
-## Testing
-
-Run the Cloudflare-focused backend tests:
-
-```bash
-node --test --test-reporter=spec test/backend-test/cloudflare/test-worker-api.mjs
-```
-
-Run the broader backend test entrypoint:
-
-```bash
-npm run test-backend
-```
-
-Run the full project test suite when making broad application changes:
-
-```bash
-npm test
-```
-
-Some inherited tests may require local services, browser dependencies, or
-container support. If a check cannot run in your environment, record that
-explicitly in the change or pull request.
-
-## Deployment Notes
-
-- Build `dist/` before deployment; the Worker serves it through the `ASSETS`
-  binding.
-- Apply D1 migrations before relying on monitor or heartbeat state.
-- Preserve existing D1 migration filenames after they may have been applied to
-  remote environments. The current `0009_*` pair is intentional compatibility
-  history; the next new Cloudflare migration should use the `0013_` prefix.
-- Keep `run_worker_first` for `/api/*` so API requests are handled by the Worker
-  instead of the SPA fallback.
-- Worker deployments automatically pause monitor checks for 2 minutes when a
-  new Worker version starts serving, so the runner/container rollout does not
-  write false DOWN heartbeats. Adjust `DEPLOY_MONITOR_PAUSE_SECONDS` in
-  `wrangler.jsonc` if the rollout window needs to be longer.
-- Queue consumers and the scheduled trigger are part of the production monitor
-  execution path.
-- The runner container is intentionally separate from the Worker because checks
-  may need Node.js libraries, network clients, and private routing helpers that
-  do not belong directly in the Worker isolate.
-
-## Relationship to Uptime Kuma
-
-Uptime Worker is based on Uptime Kuma and retains MIT-licensed code from that
-project. The fork is independent: documentation, deployment defaults, and future
-development in this repository are oriented around Cloudflare rather than the
-upstream Docker-first distribution.
-
-For the upstream project, see:
-
-<https://github.com/louislam/uptime-kuma>
-
-## License
-
-This project is distributed under the MIT license. Uptime Worker project
-changes are copyright 2026 Esau Engineering, and retained upstream Uptime Kuma
-code remains attributed to Louis Lam. See `LICENSE` for the full license text.
+## Relationship To The Source Fork
+
+This repository is a fork of `esaueng/uptimeworker`, using its `docker` branch
+as the Home Assistant and Docker container distribution branch. The Cloudflare
+Worker files from the source project remain in the tree, but this repository's
+primary deployment target is the local Home Assistant container path.
+
+Uptime Worker retains MIT-licensed code from Uptime Kuma. See `LICENSE` for the
+full license text and attribution. Uptime Worker HA project changes are
+maintained by Esau Engineering.

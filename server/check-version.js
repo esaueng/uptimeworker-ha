@@ -7,7 +7,7 @@ exports.latestVersion = null;
 
 // How much time in ms to wait between update checks
 const UPDATE_CHECKER_INTERVAL_MS = 1000 * 60 * 60 * 48;
-const UPDATE_CHECKER_LATEST_VERSION_URL = "https://api.github.com/repos/esaueng/uptimeworker/releases/latest";
+const UPDATE_CHECKER_LATEST_VERSION_URL = "https://api.github.com/repos/esaueng/uptimeworker-ha/releases/latest";
 
 let interval;
 

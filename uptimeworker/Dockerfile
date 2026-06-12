@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-ARG UPTIMEWORKER_REPOSITORY=https://github.com/esaueng/uptimeworker.git
+ARG UPTIMEWORKER_REPOSITORY=https://github.com/esaueng/uptimeworker-ha.git
 ARG UPTIMEWORKER_REF=docker
 
 FROM node:22-bookworm-slim AS source

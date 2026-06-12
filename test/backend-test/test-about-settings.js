@@ -40,9 +40,9 @@ describe("About settings page branding and versioning", () => {
     );
 
     test("uses the Uptime Worker GitHub repository for update links", () => {
-        assert.strictEqual(packageJson.repository.url, "https://github.com/esaueng/uptimeworker.git");
-        assert.match(aboutSource, /https:\/\/github\.com\/esaueng\/uptimeworker\/releases/);
-        assert.match(checkVersionSource, /https:\/\/api\.github\.com\/repos\/esaueng\/uptimeworker\/releases\/latest/);
+        assert.strictEqual(packageJson.repository.url, "https://github.com/esaueng/uptimeworker-ha.git");
+        assert.match(aboutSource, /https:\/\/github\.com\/esaueng\/uptimeworker-ha\/releases/);
+        assert.match(checkVersionSource, /https:\/\/api\.github\.com\/repos\/esaueng\/uptimeworker-ha\/releases\/latest/);
     });
 
     test("declares the first Uptime Worker repo release version", () => {
@@ -82,11 +82,11 @@ describe("About settings page branding and versioning", () => {
 
     test("links the public powered-by footer to the Uptime Worker fork", () => {
         assert.match(statusPageSource, /data-testid="powered-by"/);
-        assert.match(statusPageSource, /href="https:\/\/github\.com\/esaueng\/uptimeworker"/);
+        assert.match(statusPageSource, /href="https:\/\/github\.com\/esaueng\/uptimeworker-ha"/);
     });
 
     test("links account menu help to the Uptime Worker wiki", () => {
-        assert.match(layoutSource, /href="https:\/\/github\.com\/esaueng\/uptimeworker\/wiki\/Uptime-Worker-Help"/);
+        assert.match(layoutSource, /href="https:\/\/github\.com\/esaueng\/uptimeworker-ha"/);
         assert.doesNotMatch(layoutSource, /https:\/\/github\.com\/louislam\/uptime-kuma\/wiki/);
     });
 });

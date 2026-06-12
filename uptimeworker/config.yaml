@@ -1,8 +1,8 @@
-name: Uptime Worker
+name: Uptime Worker HA
 version: "1.0.0"
 slug: uptimeworker
-description: Self-hosted Uptime Worker monitoring server
-url: https://github.com/esaueng/uptimeworker/tree/docker
+description: Self-hosted Uptime Worker monitoring server for Home Assistant
+url: https://github.com/esaueng/uptimeworker-ha
 arch:
   - amd64
   - aarch64
@@ -14,7 +14,7 @@ watchdog: http://[HOST]:[PORT:3001]/api/entry-page
 ports:
   3001/tcp: 3001
 ports_description:
-  3001/tcp: Uptime Worker web interface
+  3001/tcp: Uptime Worker HA web interface
 options: {}
 schema: {}
 stage: experimental

@@ -3,8 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: uptimeworker:local
-    container_name: uptimeworker
+    image: uptimeworker-ha:local
+    container_name: uptimeworker-ha
     restart: unless-stopped
     volumes:
       - ./data:/data
