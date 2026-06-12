@@ -2,7 +2,10 @@
     <div class="d-flex justify-content-center align-items-center">
         <div class="logo d-flex flex-column justify-content-center align-items-center">
             <object class="my-4" width="200" height="200" data="/icon.svg" />
-            <div class="fs-4 fw-bold">Uptime Worker</div>
+            <div class="fs-4 fw-bold">Uptime Worker HA</div>
+            <div class="about-tagline">
+                Home Assistant add-on and Docker container for the Uptime Worker monitoring app.
+            </div>
             <div>{{ $t("versionIs", { version: appVersion }) }}</div>
 
             <div v-if="!$root.isFrontendBackendVersionMatched" class="alert alert-warning mt-4" role="alert">
@@ -67,6 +70,13 @@ export default {
 
 .update-link {
     font-size: 0.8em;
+}
+
+.about-tagline {
+    max-width: 24rem;
+    margin-top: 0.35rem;
+    font-size: 0.95em;
+    text-align: center;
 }
 
 .license-note {

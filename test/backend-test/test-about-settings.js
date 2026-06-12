@@ -80,6 +80,13 @@ describe("About settings page branding and versioning", () => {
         assert.match(readmeSource, /Esau Engineering/);
     });
 
+    test("describes the Home Assistant Docker distribution", () => {
+        assert.match(aboutSource, /Uptime Worker HA/);
+        assert.match(aboutSource, /Home Assistant add-on and Docker container/);
+        assert.match(readmeSource, /Home Assistant\s+add-on and standalone Docker container/);
+        assert.match(readmeSource, /Home Assistant app\/Docker distribution/);
+    });
+
     test("links the public powered-by footer to the Uptime Worker fork", () => {
         assert.match(statusPageSource, /data-testid="powered-by"/);
         assert.match(statusPageSource, /href="https:\/\/github\.com\/esaueng\/uptimeworker-ha"/);
