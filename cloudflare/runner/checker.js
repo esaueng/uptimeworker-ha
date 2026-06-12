@@ -118,6 +118,9 @@ async function runHttpCheck(monitor, networkProfile, twingateProxyUrl, start, op
             throw new Error(`Response body is not valid JSON${response.truncated ? " (body truncated by size limit)" : ""}`);
         }
         const actual = resolveJsonPath(parsed, monitor.jsonPath);
+        if (actual === undefined) {
+            throw new Error(`JSON query "${monitor.jsonPath || "$"}" did not match any value`);
+        }
         if (String(actual) !== String(monitor.expectedValue)) {
             throw new Error(`JSON query does not match expected value: ${actual}`);
         }
@@ -653,9 +656,15 @@ function parseHeaders(headers) {
         return {};
     }
     if (typeof headers === "string") {
-        return JSON.parse(headers);
+        let parsed;
+        try {
+            parsed = JSON.parse(headers);
+        } catch (_) {
+            throw new Error("Monitor headers are not valid JSON");
+        }
+        return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
     }
-    return headers;
+    return typeof headers === "object" && !Array.isArray(headers) ? headers : {};
 }
 
 function resolveJsonPath(value, path) {
@@ -809,7 +818,11 @@ function resolveResponseMaxBytes(monitor) {
 }
 
 function isPrivateWorkerHost(hostname) {
-    const normalized = String(hostname || "").trim().toLowerCase();
+    const normalized = String(hostname || "")
+        .trim()
+        .toLowerCase()
+        .replace(/^\[/, "")
+        .replace(/\]$/, "");
     if (
         normalized === "localhost" ||
         normalized.endsWith(".localhost") ||
@@ -819,29 +832,60 @@ function isPrivateWorkerHost(hostname) {
     }
 
     if (net.isIP(normalized) === 4) {
-        const [a, b] = normalized.split(".").map((part) => Number(part));
-        return (
-            a === 0 ||
-            a === 10 ||
-            a === 127 ||
-            (a === 100 && b >= 64 && b <= 127) ||
-            (a === 169 && b === 254) ||
-            (a === 172 && b >= 16 && b <= 31) ||
-            (a === 192 && b === 168)
-        );
+        return isPrivateIPv4Octets(normalized.split(".").map((part) => Number(part)));
     }
 
     if (net.isIP(normalized) === 6) {
+        // IPv4-mapped/compatible forms such as ::ffff:169.254.169.254 still reach
+        // private or metadata IPv4 endpoints, so validate the embedded IPv4 too.
+        const embeddedIPv4 = extractEmbeddedIPv4(normalized);
+        if (embeddedIPv4) {
+            return isPrivateIPv4Octets(embeddedIPv4);
+        }
         return (
             normalized === "::1" ||
             normalized === "::" ||
             normalized.startsWith("fc") ||
             normalized.startsWith("fd") ||
-            normalized.startsWith("fe80:")
+            // fe80::/10 link-local spans the fe80–febf prefixes, not just fe80:.
+            /^fe[89ab]/.test(normalized)
         );
     }
 
     return false;
+}
+
+function isPrivateIPv4Octets(octets) {
+    const [a, b] = octets;
+    return (
+        a === 0 ||
+        a === 10 ||
+        a === 127 ||
+        (a === 100 && b >= 64 && b <= 127) ||
+        (a === 169 && b === 254) ||
+        (a === 172 && b >= 16 && b <= 31) ||
+        (a === 192 && b === 168)
+    );
+}
+
+function extractEmbeddedIPv4(host) {
+    // Dotted IPv4-mapped form, e.g. ::ffff:169.254.169.254.
+    const dotted = host.match(/(?:^|:)((?:\d{1,3}\.){3}\d{1,3})$/);
+    if (dotted) {
+        const octets = dotted[1].split(".").map((part) => Number(part));
+        if (octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+            return null;
+        }
+        return octets;
+    }
+    // Hex IPv4-mapped form, e.g. ::ffff:a9fe:a9fe (how URL parsing normalizes it).
+    const hex = host.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i);
+    if (!hex) {
+        return null;
+    }
+    const high = Number.parseInt(hex[1], 16);
+    const low = Number.parseInt(hex[2], 16);
+    return [(high >> 8) & 0xff, high & 0xff, (low >> 8) & 0xff, low & 0xff];
 }
 
 module.exports = {

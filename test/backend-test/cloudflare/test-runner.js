@@ -60,6 +60,32 @@ describe("Cloudflare monitor runner", () => {
         );
     });
 
+    test("direct checks reject IPv4-mapped IPv6 literals that target metadata or private hosts", async () => {
+        const { resolveDirectTarget } = require("../../../cloudflare/runner/checker");
+
+        for (const host of ["::ffff:169.254.169.254", "::ffff:127.0.0.1", "[::ffff:10.0.0.5]", "[::1]", "fe9a::1"]) {
+            await assert.rejects(
+                resolveDirectTarget(host, null, async () => {
+                    throw new Error("DNS lookup should not run for IP literals");
+                }),
+                /Direct Worker checks cannot target private, loopback, link-local, or metadata hosts/,
+                `expected ${host} to be rejected as private`
+            );
+        }
+    });
+
+    test("direct checks reject hostnames that resolve to IPv4-mapped IPv6 private addresses", async () => {
+        const { resolveDirectTarget } = require("../../../cloudflare/runner/checker");
+
+        await assert.rejects(
+            resolveDirectTarget("mapped.public.example", null, async () => ({
+                address: "::ffff:169.254.169.254",
+                family: 6,
+            })),
+            /Direct Worker checks cannot target private, loopback, link-local, or metadata hosts/
+        );
+    });
+
     test("Twingate HTTP checks in userspace mode use the configured HTTP proxy", async () => {
         const { runCheck } = require("../../../cloudflare/runner/checker");
         let proxyRequests = 0;
@@ -213,6 +239,57 @@ describe("Cloudflare monitor runner", () => {
 
         assert.strictEqual(result.status, UP);
         assert.strictEqual(result.response, "01234567");
+    });
+
+    test("json-query checks fail with a clear message when the path matches no value", async () => {
+        const { runCheck } = require("../../../cloudflare/runner/checker");
+        const target = await listen(
+            http.createServer((req, res) => {
+                res.writeHead(200, { "content-type": "application/json" });
+                res.end(JSON.stringify({ status: "ok" }));
+            })
+        );
+
+        const result = await runCheck({
+            monitor: {
+                id: 30,
+                type: "json-query",
+                url: `http://public.example.test:${target.port}/health`,
+                timeout: 5,
+                jsonPath: "$.missing",
+                expectedValue: "undefined",
+            },
+            lookup: async () => ({ address: "127.0.0.1", family: 4 }),
+            allowPrivateResolvedForTest: true,
+        });
+
+        assert.strictEqual(result.status, DOWN);
+        assert.match(result.msg, /did not match any value/);
+    });
+
+    test("HTTP checks fail with a clear message when monitor headers are not valid JSON", async () => {
+        const { runCheck } = require("../../../cloudflare/runner/checker");
+        const target = await listen(
+            http.createServer((req, res) => {
+                res.writeHead(200, { "content-type": "text/plain" });
+                res.end("ok");
+            })
+        );
+
+        const result = await runCheck({
+            monitor: {
+                id: 31,
+                type: "http",
+                url: `http://public.example.test:${target.port}/health`,
+                timeout: 5,
+                headers: "{not valid json",
+            },
+            lookup: async () => ({ address: "127.0.0.1", family: 4 }),
+            allowPrivateResolvedForTest: true,
+        });
+
+        assert.strictEqual(result.status, DOWN);
+        assert.strictEqual(result.msg, "Monitor headers are not valid JSON");
     });
 
     test("HTTPS checks honor ignoreTls for self-signed certificates", async () => {
