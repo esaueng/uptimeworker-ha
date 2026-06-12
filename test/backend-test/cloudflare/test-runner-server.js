@@ -82,7 +82,7 @@ describe("Cloudflare monitor runner server", () => {
             const statusResponse = await fetch(`${baseUrl}/twingate/status`);
 
             assert.strictEqual(healthResponse.status, 200);
-            assert.deepStrictEqual(await healthResponse.json(), { ok: true, version: "1.0.1" });
+            assert.deepStrictEqual(await healthResponse.json(), { ok: true, version: "1.0.2" });
             assert.strictEqual(statusResponse.status, 200);
             assert.deepStrictEqual(await statusResponse.json(), sanitizeTwingateStatus(twingateStatus));
         } finally {

@@ -7,7 +7,7 @@ const {
 const { TwingateLifecycle } = require("./twingate-lifecycle");
 
 const port = Number(process.env.PORT || 8788);
-const DEFAULT_APP_VERSION = "1.0.1";
+const DEFAULT_APP_VERSION = "1.0.2";
 const PENDING = 2;
 const TWINGATE_SERVICE_NOT_RUNNING_MESSAGE = "Twingate service isn't running";
 const twingateServiceKey = resolveTwingateServiceKey();
