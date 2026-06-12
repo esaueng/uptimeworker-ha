@@ -1,9 +1,13 @@
 services:
-  uptime-kuma:
-    image: louislam/uptime-kuma:2
+  uptimeworker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: uptimeworker:local
+    container_name: uptimeworker
     restart: unless-stopped
     volumes:
-      - ./data:/app/data
+      - ./data:/data
     ports:
       # <Host Port>:<Container Port>
       - "3001:3001"

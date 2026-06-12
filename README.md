@@ -30,6 +30,10 @@ Use this repository when you want:
 Use upstream Uptime Kuma if you want the established Docker/PM2 self-hosted
 server distribution without the Cloudflare migration layer.
 
+This repository also includes a local single-container Docker path for Home
+Assistant boxes and other self-hosted hosts. It runs the retained Node server
+with SQLite data in `/data`; see [docs/docker.md](docs/docker.md).
+
 ## Architecture
 
 The Cloudflare runtime is split into three main pieces:
