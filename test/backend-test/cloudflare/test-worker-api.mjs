@@ -4986,6 +4986,28 @@ describe("Cloudflare Worker API", () => {
         });
     });
 
+    test("rejects direct Worker monitors for IPv4-mapped IPv6 metadata addresses", async () => {
+        const { handleApiRequest } = await import("../../../cloudflare/worker/api.mjs");
+        const env = createEnv({});
+
+        const response = await handleApiRequest(
+            adminRequest("https://example.com/api/monitors", {
+                method: "POST",
+                body: JSON.stringify({
+                    name: "Mapped metadata",
+                    type: "http",
+                    url: "http://[::ffff:169.254.169.254]/latest/meta-data",
+                }),
+            }),
+            env
+        );
+
+        assert.strictEqual(response.status, 400);
+        assert.deepStrictEqual(await response.json(), {
+            error: "Direct Worker checks cannot target private, loopback, link-local, or metadata hosts",
+        });
+    });
+
     test("updates a monitor network route only to direct or an enabled profile", async () => {
         const { handleApiRequest } = await import("../../../cloudflare/worker/api.mjs");
         const env = createEnv({

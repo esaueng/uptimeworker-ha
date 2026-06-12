@@ -5697,13 +5697,6 @@ async function ensureWorkerAuthSessionSecret(env) {
     return secret;
 }
 
-async function rotateWorkerAuthSessionSecret(env) {
-    const secret = bytesToBase64Url(crypto.getRandomValues(new Uint8Array(32)));
-    await setStoredSetting(env, WORKER_AUTH_SESSION_SECRET_SETTING, secret);
-    await setStoredSetting(env, WORKER_AUTH_REVOKED_SESSIONS_SETTING, {});
-    return secret;
-}
-
 async function createWorkerAuthSessionToken(env, user, ttlSeconds) {
     await ensureUserAuthSchema(env);
     const sessionId = crypto.randomUUID
@@ -6150,26 +6143,57 @@ function isPrivateWorkerHost(host) {
 
     const ipv4 = parseIPv4(normalized);
     if (ipv4) {
-        const [a, b] = ipv4;
-        return (
-            a === 0 ||
-            a === 10 ||
-            a === 127 ||
-            (a === 100 && b >= 64 && b <= 127) ||
-            (a === 169 && b === 254) ||
-            (a === 172 && b >= 16 && b <= 31) ||
-            (a === 192 && b === 168)
-        );
+        return isPrivateIPv4Octets(ipv4);
     }
 
-    const ipv6 = normalized.replace(/^\[/, "").replace(/\]$/, "");
+    return isPrivateIPv6Host(normalized);
+}
+
+function isPrivateIPv4Octets(octets) {
+    const [a, b] = octets;
+    return (
+        a === 0 ||
+        a === 10 ||
+        a === 127 ||
+        (a === 100 && b >= 64 && b <= 127) ||
+        (a === 169 && b === 254) ||
+        (a === 172 && b >= 16 && b <= 31) ||
+        (a === 192 && b === 168)
+    );
+}
+
+function isPrivateIPv6Host(host) {
+    const ipv6 = host.replace(/^\[/, "").replace(/\]$/, "");
+    // IPv4-mapped/compatible forms such as ::ffff:169.254.169.254 still reach
+    // private or metadata IPv4 endpoints, so validate the embedded IPv4 too.
+    const embeddedIPv4 = extractEmbeddedIPv4(ipv6);
+    if (embeddedIPv4) {
+        return isPrivateIPv4Octets(embeddedIPv4);
+    }
     return (
         ipv6 === "::1" ||
         ipv6 === "::" ||
         ipv6.startsWith("fc") ||
         ipv6.startsWith("fd") ||
-        ipv6.startsWith("fe80:")
+        // fe80::/10 link-local spans the fe80–febf prefixes, not just fe80:.
+        /^fe[89ab]/.test(ipv6)
     );
+}
+
+function extractEmbeddedIPv4(host) {
+    // Dotted IPv4-mapped form, e.g. ::ffff:169.254.169.254.
+    const dotted = host.match(/(?:^|:)((?:\d{1,3}\.){3}\d{1,3})$/);
+    if (dotted) {
+        return parseIPv4(dotted[1]);
+    }
+    // Hex IPv4-mapped form, e.g. ::ffff:a9fe:a9fe (how URL parsing normalizes it).
+    const hex = host.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i);
+    if (!hex) {
+        return null;
+    }
+    const high = Number.parseInt(hex[1], 16);
+    const low = Number.parseInt(hex[2], 16);
+    return [(high >> 8) & 0xff, high & 0xff, (low >> 8) & 0xff, low & 0xff];
 }
 
 function parseIPv4(host) {
