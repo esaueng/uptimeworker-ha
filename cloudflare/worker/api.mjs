@@ -5125,6 +5125,7 @@ async function saveWorkerTwoFA(env, body, actor) {
         verified: false,
         updatedAt: new Date().toISOString(),
     });
+    await revokeOtherUserSessions(env, user.id, actor?.sessionId);
     return {
         ok: true,
         msg: "2faEnabled",
@@ -5798,6 +5799,22 @@ async function revokeUserSessions(env, userId) {
            AND revoked_at IS NULL`
     )
         .bind(Number(userId))
+        .run();
+}
+
+async function revokeOtherUserSessions(env, userId, keepSessionId) {
+    if (!keepSessionId) {
+        await revokeUserSessions(env, userId);
+        return;
+    }
+    await env.DB.prepare(
+        `UPDATE user_sessions
+         SET revoked_at = CURRENT_TIMESTAMP
+         WHERE user_id = ?
+           AND id <> ?
+           AND revoked_at IS NULL`
+    )
+        .bind(Number(userId), keepSessionId)
         .run();
 }
 

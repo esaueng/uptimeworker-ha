@@ -2385,6 +2385,67 @@ describe("Cloudflare Worker API", () => {
         assert.deepStrictEqual(await monitorsResponse.json(), { error: "Unauthorized" });
     });
 
+    test("Worker 2FA setup revokes other local auth sessions for the user", async () => {
+        const { handleApiRequest } = await import("../../../cloudflare/worker/api.mjs");
+        const env = createEnv({
+            monitors: [],
+        });
+        await createLocalUser(handleApiRequest, env);
+
+        const firstSessionToken = await loginLocalUser(handleApiRequest, env, "admin", "password123");
+        const setupSessionToken = await loginLocalUser(handleApiRequest, env, "admin", "password123");
+
+        const prepareResponse = await handleApiRequest(
+            bearerRequest(setupSessionToken, "https://example.com/api/auth/2fa/prepare", {
+                method: "POST",
+                body: JSON.stringify({
+                    currentPassword: "password123",
+                }),
+            }),
+            env
+        );
+        assert.strictEqual(prepareResponse.status, 200);
+        const prepareBody = await prepareResponse.json();
+        assert.strictEqual(prepareBody.ok, true);
+        assert.match(prepareBody.uri, /^otpauth:\/\/totp\/Uptime%20Worker:admin\?secret=/);
+        const token = await generateTotp(extractTotpSecret(prepareBody.uri));
+
+        const verifyResponse = await handleApiRequest(
+            bearerRequest(setupSessionToken, "https://example.com/api/auth/2fa/verify", {
+                method: "POST",
+                body: JSON.stringify({
+                    currentPassword: "password123",
+                    token,
+                }),
+            }),
+            env
+        );
+        assert.strictEqual(verifyResponse.status, 200);
+        const saveResponse = await handleApiRequest(
+            bearerRequest(setupSessionToken, "https://example.com/api/auth/2fa/save", {
+                method: "POST",
+                body: JSON.stringify({
+                    currentPassword: "password123",
+                }),
+            }),
+            env
+        );
+        assert.strictEqual(saveResponse.status, 200);
+
+        const firstSessionResponse = await handleApiRequest(
+            bearerRequest(firstSessionToken, "https://example.com/api/monitors"),
+            env
+        );
+        const setupSessionResponse = await handleApiRequest(
+            bearerRequest(setupSessionToken, "https://example.com/api/monitors"),
+            env
+        );
+
+        assert.strictEqual(firstSessionResponse.status, 401);
+        assert.deepStrictEqual(await firstSessionResponse.json(), { error: "Unauthorized" });
+        assert.strictEqual(setupSessionResponse.status, 200);
+    });
+
     test("Worker 2FA setup verifies TOTP codes and requires them at login", async () => {
         const { handleApiRequest } = await import("../../../cloudflare/worker/api.mjs");
         const env = createEnv({});
@@ -7844,9 +7905,13 @@ function createStatement(sql, state) {
                     return { success: true };
                 }
                 if (sql.includes("WHERE user_id = ?")) {
-                    const [userId] = this.values;
+                    const [userId, keepSessionId] = this.values;
                     for (const session of state.userSessions) {
-                        if (Number(session.user_id) === Number(userId) && !session.revoked_at) {
+                        if (
+                            Number(session.user_id) === Number(userId) &&
+                            (!sql.includes("id <> ?") || session.id !== keepSessionId) &&
+                            !session.revoked_at
+                        ) {
                             session.revoked_at = "2026-01-01 00:00:00";
                         }
                     }
