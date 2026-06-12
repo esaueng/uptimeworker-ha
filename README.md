@@ -32,7 +32,9 @@ server distribution without the Cloudflare migration layer.
 
 This repository also includes a local single-container Docker path for Home
 Assistant boxes and other self-hosted hosts. It runs the retained Node server
-with SQLite data in `/data`; see [docs/docker.md](docs/docker.md).
+with SQLite data in `/data`; see [docs/docker.md](docs/docker.md). The
+`docker` branch is structured as a Home Assistant Apps repository that can be
+added from `https://github.com/esaueng/uptimeworker/tree/docker`.
 
 ## Architecture
 

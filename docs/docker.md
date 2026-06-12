@@ -44,6 +44,19 @@ The checked-in `compose.yaml` builds the local image and stores data in
 docker compose up -d --build
 ```
 
+## Home Assistant Apps repository
+
+To install through Home Assistant's Apps repository screen, add this repository
+URL:
+
+```text
+https://github.com/esaueng/uptimeworker/tree/docker
+```
+
+Home Assistant will find the `uptimeworker/` app folder and build the app image
+from this branch. The app exposes port `3001` and stores persistent data in
+Home Assistant's app `/data` volume.
+
 ## Runtime settings
 
 The image defaults to:
@@ -59,7 +72,9 @@ Back up that volume before replacing the container image.
 
 ## Notes for Home Assistant boxes
 
-- This is a normal Docker container, not a Home Assistant add-on package.
+- The `uptimeworker/` folder provides the Home Assistant app package.
+- The root `Dockerfile` and `compose.yaml` remain available for normal Docker
+  hosts.
 - Map `3001:3001` or choose another host port if `3001` is already used.
 - Keep `/data` on persistent storage. Removing that volume removes monitors,
   users, status pages, and history.
