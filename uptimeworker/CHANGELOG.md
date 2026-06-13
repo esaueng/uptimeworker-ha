@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.3
+
+- Improve Home Assistant start reliability by extending the Supervisor start
+  timeout and avoiding repeated recursive ownership fixes on persisted data.
+
 ## 1.0.2
 
 - Bump Uptime Worker HA add-on version so Home Assistant can detect an update

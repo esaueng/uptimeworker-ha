@@ -1,5 +1,5 @@
 name: Uptime Worker HA
-version: "1.0.2"
+version: "1.0.3"
 slug: uptimeworker
 description: Self-hosted Uptime Worker monitoring server for Home Assistant
 url: https://github.com/esaueng/uptimeworker-ha
@@ -8,6 +8,7 @@ arch:
   - aarch64
 startup: application
 boot: auto
+timeout: 120
 init: false
 webui: http://[HOST]:[PORT:3001]
 watchdog: http://[HOST]:[PORT:3001]/api/entry-page

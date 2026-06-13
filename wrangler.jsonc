@@ -78,7 +78,7 @@
         "crons": ["* * * * *"]
     },
     "vars": {
-        "APP_VERSION": "1.0.2",
+        "APP_VERSION": "1.0.3",
         "DEPLOY_MONITOR_PAUSE_SECONDS": "120",
         "OK_HEARTBEAT_SAMPLE_SECONDS": "900",
         "TWINGATE_TUN": "on"

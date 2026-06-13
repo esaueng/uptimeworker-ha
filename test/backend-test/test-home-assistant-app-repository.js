@@ -23,7 +23,7 @@ describe("Home Assistant add-on repository", () => {
         const config = read("uptimeworker/config.yaml");
 
         assert.match(config, /^name: Uptime Worker HA$/m);
-        assert.match(config, /^version: "1\.0\.2"$/m);
+        assert.match(config, /^version: "1\.0\.3"$/m);
         assert.match(config, /^slug: uptimeworker$/m);
         assert.match(config, /^description: Self-hosted Uptime Worker monitoring server for Home Assistant$/m);
         assert.match(config, /^url: https:\/\/github\.com\/esaueng\/uptimeworker-ha$/m);
@@ -31,6 +31,7 @@ describe("Home Assistant add-on repository", () => {
         assert.match(config, /^  - aarch64$/m);
         assert.match(config, /^startup: application$/m);
         assert.match(config, /^boot: auto$/m);
+        assert.match(config, /^timeout: 120$/m);
         assert.match(config, /^init: false$/m);
         assert.match(config, /^webui: http:\/\/\[HOST\]:\[PORT:3001\]$/m);
         assert.match(config, /^watchdog: http:\/\/\[HOST\]:\[PORT:3001\]\/api\/entry-page$/m);

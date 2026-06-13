@@ -46,10 +46,10 @@ describe("About settings page branding and versioning", () => {
     });
 
     test("declares the current Uptime Worker HA release version", () => {
-        assert.strictEqual(packageJson.version, "1.0.2");
-        assert.strictEqual(packageLockJson.version, "1.0.2");
-        assert.strictEqual(packageLockJson.packages[""].version, "1.0.2");
-        assert.match(packageJson.scripts.setup, /git checkout 1\.0\.2/);
+        assert.strictEqual(packageJson.version, "1.0.3");
+        assert.strictEqual(packageLockJson.version, "1.0.3");
+        assert.strictEqual(packageLockJson.packages[""].version, "1.0.3");
+        assert.match(packageJson.scripts.setup, /git checkout 1\.0\.3/);
     });
 
     test("does not expose beta release update checks", () => {

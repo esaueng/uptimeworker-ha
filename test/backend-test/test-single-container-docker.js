@@ -37,8 +37,12 @@ describe("single-container Docker deployment", () => {
         assert.match(dockerfile, /HEALTHCHECK[\s\S]*node extra\/healthcheck\.js/);
         assert.match(dockerfile, /ENTRYPOINT \["\/usr\/bin\/dumb-init", "--", "\/app\/docker\/entrypoint\.sh"\]/);
         assert.match(dockerfile, /CMD \["node", "server\/server\.js"\]/);
-        assert.match(entrypoint, /mkdir -p "\$\{DATA_DIR:-\/data\}"/);
-        assert.match(entrypoint, /chown -R node:node "\$\{DATA_DIR:-\/data\}"/);
+        assert.match(entrypoint, /data_dir="\$\{DATA_DIR:-\/data\}"/);
+        assert.match(entrypoint, /mkdir -p "\$\{data_dir\}"/);
+        assert.match(entrypoint, /node_uid="\$\(id -u node\)"/);
+        assert.match(entrypoint, /current_owner="\$\(stat -c "%u:%g" "\$\{data_dir\}"\)"/);
+        assert.match(entrypoint, /if \[ "\$\{current_owner\}" != "\$\{node_uid\}:\$\{node_gid\}" \]; then/);
+        assert.match(entrypoint, /chown -R node:node "\$\{data_dir\}"/);
         assert.match(entrypoint, /exec runuser -u node -- "\$@"/);
     });
 
